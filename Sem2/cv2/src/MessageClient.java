@@ -3,7 +3,7 @@ import java.net.Socket;
 
 public class MessageClient {
 
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) {
         String host = "127.0.0.1";
         int port = 4242;
 
@@ -16,9 +16,8 @@ public class MessageClient {
             BufferedReader in = new BufferedReader(new InputStreamReader(System.in));
             while (true) {
                 String line = in.readLine();
-                if (line == null) {
+                if (line == null)
                     break;
-                }
                 System.out.println("Command: " + line);
 
                 wr.write(line);
@@ -28,11 +27,11 @@ public class MessageClient {
                 String response = rd.readLine();
                 System.out.println("Response: " + response);
 
-                if (response == null) {
+                if (response == null)
                     break;
-                }
             }
-
+        } catch (IOException e) {
+            System.out.println("unable to initialize client");
         }
         System.out.println("Konec");
     }

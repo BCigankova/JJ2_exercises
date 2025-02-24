@@ -4,7 +4,7 @@ import java.security.NoSuchAlgorithmException;
 
 public class MessageServer {
 
-    public static void main(String[] args) throws IOException, NoSuchAlgorithmException {
+    public static void main(String[] args) throws IOException {
 
         ServerSocket srvSocket = new ServerSocket(4242);
         MessageProtocol prl =  new MessageProtocol();
@@ -14,7 +14,13 @@ public class MessageServer {
             try (Socket clientSocket = srvSocket.accept();
                  BufferedReader rd = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
                  BufferedWriter wr = new BufferedWriter(new OutputStreamWriter(clientSocket.getOutputStream()))) {
+
                 prl.processRequest(rd, wr);
+            } catch (IOException ioException) {
+                System.out.println("Unable to initialize server");
+            }
+            catch(NoSuchAlgorithmException e) {
+                System.out.println("Error signup");
             }
         }
 

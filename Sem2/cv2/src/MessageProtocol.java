@@ -3,10 +3,10 @@ import java.security.NoSuchAlgorithmException;
 import java.util.*;
 
 public class MessageProtocol {
-    private boolean loggedInUser;
+    private String loggedInUser =  null;
     private boolean stopServer = false;
-    private HashMap<String, Password> users = new HashMap<>();
-    private HashMap<String, List<String>> messages = new HashMap<>();
+    private final HashMap<String, Password> users = new HashMap<>();
+    private final HashMap<String, List<String>> messages = new HashMap<>();
 
 
     public MessageProtocol() throws IOException {
@@ -25,10 +25,11 @@ public class MessageProtocol {
         //msg
         try (Reader reader = new FileReader("");
              BufferedReader brd = new BufferedReader(reader)) {
-            String line = brd.readLine();
+            String line = brd.readLine(); //usr;;from bla bla;;from bla bla bla
             while(line != null) {
-                String[] parts = line.split(";;");
-                messages.put(parts[0], Arrays.stream(parts).toList());
+                String[] parts = line.split(";;");  //<usr, List(bla bla, bla bla bla...)
+                List<String> msgs = new LinkedList<>(Arrays.asList(Arrays.copyOfRange(parts, 1, parts.length)));
+                messages.put(parts[0], msgs);
                 line = brd.readLine();
             }
         }
@@ -64,23 +65,24 @@ public class MessageProtocol {
                         sendInvalidInputMessage(wr);
                     break;
                 case "msg":
-                    if(input.length > 3 && input[1].equalsIgnoreCase("for") && input[2].endsWith(":") && this.loggedInUser)
+                    if(input.length > 3 && input[1].equalsIgnoreCase("for") && input[2].endsWith(":") && this.loggedInUser != null)
                         messageUser(input, wr);
                     else
                         sendInvalidInputMessage(wr);
                     break;
                 case "read":
-                    if(input.length == 1 && this.loggedInUser) {
-                        readMessages();
+                    if(input.length == 1 && this.loggedInUser != null) {
+                        readMessages(wr);
                         sendResponse("OK", wr);
                     }
                     else
                         sendInvalidInputMessage(wr);
                     break;
                 case "logout":
-                    if(input.length == 1 && this.loggedInUser) {
+                    if(input.length == 1 && this.loggedInUser != null) {
                         sendResponse("OK", wr);
                         run = false;
+                        this.loggedInUser = null;
                         saveUsers();
                         saveMessages();
                     }
@@ -128,7 +130,7 @@ public class MessageProtocol {
         Password ps = new Password();
         ps.hashPassword(input[2]);
         if(users.get(input[1]).getHashedPassword().equals(ps.getHashedPassword())) {
-            this.loggedInUser = true;
+            this.loggedInUser = input[1];
             System.out.println("Welcome " + input[1]);
             sendResponse("OK", wr);
         }
@@ -138,15 +140,25 @@ public class MessageProtocol {
         }
     }
 
-    private void messageUser(String[] input, BufferedWriter wr) {
-        String destination = input[2].substring(0, input[2].length() - 1);
-        if(users.containsKey(destination)) {
-            messages.put(destination, messages.get(destination).add())
+    private void messageUser(String[] input, BufferedWriter wr) throws IOException {
+        String destination = input[2].substring(0, input[2].length() - 1);  //odebere :
+        if (users.containsKey(destination)) {
+            messages.get(destination).add(loggedInUser + ": " + Arrays.toString(Arrays.copyOfRange(input, 4, input.length)));
+            sendResponse("OK", wr);
+        }
+        else {
+            System.out.println("User " + destination + " doesnt exist");
+            sendResponse("ERR", wr);
         }
     }
 
-    private void readMessages() {
-
+    private void readMessages(BufferedWriter wr) throws IOException {
+        while(!messages.get(loggedInUser).isEmpty()) {
+            String response = "FROM " + messages.get(loggedInUser).getFirst();
+            sendResponse(response, wr);
+            messages.get(loggedInUser).removeFirst();
+        }
+        sendResponse("OK", wr);
     }
 
     private void sendInvalidInputMessage(BufferedWriter wr) throws IOException {
