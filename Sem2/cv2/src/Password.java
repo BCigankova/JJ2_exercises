@@ -7,7 +7,6 @@ public class Password implements Serializable {
     private String salt;
 
     public Password() {
-
     }
 
     public Password(String hashedPassword, String salt) {
@@ -21,9 +20,14 @@ public class Password implements Serializable {
         this.hashedPassword = Base64.getEncoder().encodeToString(hash);
     }
 
+    public String getHashedPasswordWithSalt(String password, String passedInSalt) throws NoSuchAlgorithmException {
+        byte[] hash = MessageDigest.getInstance("SHA3-256").digest((password + passedInSalt).getBytes());
+        return Base64.getEncoder().encodeToString(hash);
+    }
+
     private String generateSalt() throws NoSuchAlgorithmException {
         byte[] saltBytes = new byte[32];
-        new SecureRandom().getInstance("NativePRNG").nextBytes(saltBytes);
+        SecureRandom.getInstance("NativePRNG").nextBytes(saltBytes);
         return Base64.getEncoder().encodeToString(saltBytes);
     }
 

@@ -24,8 +24,15 @@ public class MessageClient {
                 wr.write('\n');
                 wr.flush();
 
+
                 String response = rd.readLine();
-                System.out.println("Response: " + response);
+                while(response != null && !response.isEmpty()) {
+                    System.out.println("Response: " + response);
+                    if(response.equalsIgnoreCase("OK") || response.equalsIgnoreCase("ERR"))
+                        break;
+                    response = rd.readLine();
+                }
+
 
                 if (response == null)
                     break;
@@ -33,7 +40,6 @@ public class MessageClient {
         } catch (IOException e) {
             System.out.println("unable to initialize client");
         }
-        System.out.println("Konec");
     }
 }
 

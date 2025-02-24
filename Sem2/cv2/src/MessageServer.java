@@ -17,14 +17,15 @@ public class MessageServer {
 
                 prl.processRequest(rd, wr);
             } catch (IOException ioException) {
-                System.out.println("Unable to initialize server");
+                System.out.println("Unable to send response");
+                ioException.printStackTrace();
             }
             catch(NoSuchAlgorithmException e) {
                 System.out.println("Error signup");
             }
         }
 
-        System.out.println("So long!");
+        System.out.println("Thanks for all the fish!");
         srvSocket.close();
     }
 }
