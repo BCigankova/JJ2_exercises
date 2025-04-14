@@ -1,23 +1,22 @@
 import javafx.beans.property.IntegerProperty;
 import javafx.beans.property.SimpleIntegerProperty;
 
-public class Player {
+public class Laser {
 
     private final IntegerProperty row;
     private final IntegerProperty column;
+    private int direction;
 
 
-    public Player(int col, int row) {
+    public Laser(int row, int col, int dir) {
         this.row = new SimpleIntegerProperty(row);
         this.column = new SimpleIntegerProperty(col);
+        this.direction = dir;
     }
 
-    public Laser shoot() {
-        Laser laser = new Laser((int) (getRow() + GameState.PLAYER_WIDTH / 2), (int) (getColumn() + GameState.PLAYER_LENGTH), -1);
-        LaserShape laserShape = new LaserShape(laser);
-        return laser;
+    public void move() {
+        setRow(getRow() + direction);
     }
-
 
     public final IntegerProperty rowProperty() {
         return this.row;
@@ -42,4 +41,8 @@ public class Player {
     public final void setColumn(final int column) {
         this.columnProperty().set(column);
     }
+
+    public int getDirection() {return this.direction;}
+
+    public void setDirection(int dir) {this.direction = dir;}
 }
