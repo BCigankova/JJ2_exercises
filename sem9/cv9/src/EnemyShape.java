@@ -10,6 +10,7 @@ public class EnemyShape extends Pane {
         baseForNow.yProperty().bind(enemy.rowProperty().multiply(SpaceInvadersApp.UNIT_SIZE));
 
         baseForNow.visibleProperty().bind(enemy.activeProperty());
+        this.visibleProperty().bind(enemy.activeProperty());
 
         getChildren().add(baseForNow);
     }

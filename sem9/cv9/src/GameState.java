@@ -1,7 +1,5 @@
-import javafx.beans.property.BooleanProperty;
-import javafx.beans.property.IntegerProperty;
-import javafx.beans.property.SimpleBooleanProperty;
-import javafx.beans.property.SimpleIntegerProperty;
+import javafx.beans.property.*;
+import javafx.collections.FXCollections;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -10,7 +8,7 @@ import java.util.List;
 public class GameState {
     private final List<Enemy> enemies;
     private final List<Shield> shields;
-    private List<Laser> lasers;
+    private final ListProperty<Laser> lasers;
     private final Player player1;
 
     public static final int ENEMY_WEAK = 10;
@@ -21,19 +19,23 @@ public class GameState {
     public static final int ROWS = 200;
     public static final int COLUMNS = 250;
 
-    public static final double SHIELD_WIDTH = 10;
-    public static final double SHIELD_LENGTH = 10;
+    public static final int SHIELD_WIDTH = 10;
+    public static final int SHIELD_LENGTH = 10;
 
-    public static final int SHIELD_ROWS = 4;
+    public static final int SHIELD_COLS = 5;
+    public static final int SHIELD_SPACING = 10;
 
-    public static final double PLAYER_WIDTH = 15;
-    public static final double PLAYER_LENGTH = 15;
 
-    public static final double ENEMY_WIDTH = 10;
-    public static final double ENEMY_LENGTH = 10;
+    public static final int PLAYER_WIDTH = 15;
+    public static final int PLAYER_LENGTH = 15;
 
-    public static final int ENEMY_ROWS = 5;
-    public static final int ENEMY_COLS = 11;
+    public static final int ENEMY_WIDTH = 10;
+    public static final int ENEMY_LENGTH = 10;
+    public static final int ENEMY_SPACING = 5;
+
+
+    public static final int ENEMY_ROWS = 3;
+    public static final int ENEMY_COLS = 7;
 
     public static final int LASER_LENGTH = 5;
 
@@ -45,92 +47,103 @@ public class GameState {
     public GameState() {
         this.enemies = new ArrayList<>();
         initializeEnemies();
+
         this.shields = new ArrayList<>();
         initializeShields();
-        this.lasers = new ArrayList<>();
-        this.player1 = new Player((int) ((COLUMNS - PLAYER_WIDTH) / 2), (int) (ROWS - PLAYER_LENGTH - 5));  //5 odsazeni at to lip vypada
+
+        this.lasers = new SimpleListProperty<>(FXCollections.observableArrayList());
+
+        this.player1 = new Player(ROWS - PLAYER_LENGTH - 5, (COLUMNS - PLAYER_WIDTH) / 2);  //5 odsazeni at to lip vypada
+
         this.score = new SimpleIntegerProperty(0);
         this.active = new SimpleBooleanProperty(false);
     }
 
     private void initializeEnemies() {
+        int allEnemies =  ENEMY_COLS * ENEMY_WIDTH + (ENEMY_COLS - 1) * ENEMY_SPACING;   //dat enemy spacing
         for(int i = 0; i < ENEMY_ROWS; i++)
             for(int j = 0; j < ENEMY_COLS; j++)
-                enemies.add(new Enemy(0, (int) ((i + 1) * (ENEMY_LENGTH + 5)), (int) ((j + 1) * (ENEMY_WIDTH + 5))));
+                enemies.add(new Enemy(0,  ENEMY_LENGTH + i * (ENEMY_LENGTH + ENEMY_SPACING),  (COLUMNS - allEnemies) / 2 + j * (ENEMY_WIDTH + ENEMY_SPACING)));
     }
 
     private void initializeShields() {
-        for(int i = 0; i < SHIELD_ROWS; i++)
-            shields.add(new Shield((int) ((i + 1) * (SHIELD_WIDTH + 10))));
+        int allShields =  SHIELD_COLS * SHIELD_WIDTH + (SHIELD_COLS - 1) * SHIELD_SPACING;
+        for(int i = 0; i < SHIELD_COLS; i++)
+            shields.add(new Shield((COLUMNS - allShields) / 2 + i * (SHIELD_WIDTH + SHIELD_SPACING)));
+    }
+
+    private void setDefaultEnemyPos(Enemy enemy, int i, int j) {
+        enemy.setRow(ENEMY_LENGTH + i * (ENEMY_LENGTH + ENEMY_SPACING));
+        enemy.setColumn((COLUMNS - (ENEMY_COLS * ENEMY_WIDTH + (ENEMY_COLS - 1) * ENEMY_SPACING)) / 2 + j * (ENEMY_WIDTH + ENEMY_SPACING));
     }
 
     public void setDefaultValues() {
         for(int i = 0; i < ENEMY_ROWS; i++)
-            for(int j = 0; j < ENEMY_COLS; j++) {
-                enemies.get(i * ENEMY_ROWS + j).setRow((int) ((i + 1) * (ENEMY_LENGTH + 5)));        //tady bude chyba v zobrazovani
-                enemies.get(i * ENEMY_ROWS + j).setColumn((int) ((j + 1) * (ENEMY_WIDTH + 5)));
-            }
+            for(int j = 0; j < ENEMY_COLS; j++)
+                setDefaultEnemyPos(enemies.get(i * ENEMY_COLS + j), i, j);
 
         enemies.forEach(e -> e.setActive(true));
         shields.forEach(s -> s.setActive(true));
 
-        player1.setColumn((int) ((COLUMNS - PLAYER_WIDTH) / 2));
-        player1.setRow((int) (ROWS - PLAYER_LENGTH - 5));
-        lasers = new ArrayList<>();
+        player1.setColumn((COLUMNS - PLAYER_WIDTH) / 2);
+        player1.setRow(ROWS - PLAYER_LENGTH - 5);
+        player1.setActive(true);
+
+        lasers.removeAll();
+        
         score.setValue(0);
         active.setValue(false);
     }
 
     public boolean update() {
-        if(enemyOnWall()) {
+        if(isEnemyOnWall()) {
             enemies.forEach(Enemy::descend);
             enemies.forEach(e -> e.setDirection(e.getDirection() * -1));
-            enemies.forEach(Enemy::move);
         }
-        else
-            enemies.forEach(Enemy::move);
+        enemies.forEach(Enemy::move);
+
         lasers.forEach(Laser::move);
-        lasers.forEach(this::checkLaser);
+        lasers.stream().filter(HittableObject::isActive).forEach(this::checkHit);
         return isActive();
     }
 
-    private void checkLaser(Laser laser) {
-        int top = laser.getRow();
-        int bottom = top + LASER_LENGTH;
-        int col = laser.getColumn();
-
-        //naraz do hrace -> konec (pridat zivoty)
-
-        if((bottom > player1.getRow()) && (bottom < player1.getRow() + PLAYER_LENGTH) && (col > player1.getColumn()) && (col < player1.getColumn() + PLAYER_WIDTH)){
+    private void checkHit(Laser laser) {
+        if(player1.isHit(laser.getShape())) {
+            player1.setActive(false);
             setActive(false);
             return;
         }
-
-        //naraz do aliena -> dead alien
         for(Enemy enemy: enemies) {
-            if ((top > enemy.getRow()) && (top < enemy.getRow() + ENEMY_LENGTH) && (col > enemy.getColumn()) && (col < enemy.getColumn() + ENEMY_WIDTH)) {
+            if (enemy.isHit(laser.getShape())) {
                 enemy.setActive(false);
+                laser.setActive(false);
+                increaseScore();
                 return;
             }
         }
 
-        //naraz do stitu -> dead stit (pridat rozbijeni stitu)
+        //naraz do stitu -> dead stit (pridat rozbijeni stitu/zivoty?)
         for(Shield shield: shields) {
-            if ((bottom > shield.getRow()) && (top < shield.getRow() + SHIELD_LENGTH) && (col > shield.getColumn()) && (col < shield.getColumn() + SHIELD_WIDTH)) {
+            if (shield.isHit(laser.getShape())) {
                 shield.setActive(false);
+                laser.setActive(false);
                 return;
             }
         }
 
         //naraz konec/zacatek herni plochy -> zmizi
-        if ((bottom == ROWS)) {
-            lasers.remove(laser);
+        if (laser.getRow() == 0 || laser.getRow() + LASER_LENGTH == ROWS) {
+            laser.setActive(false);
         }
     }
 
-    private boolean enemyOnWall() {
+    private void increaseScore() {
+        score.set(score.get() + 1);
+    }
+
+    private boolean isEnemyOnWall() {    //check i druhe strany xd
         for(Enemy enemy: enemies) {
-            if(enemy.getColumn() + ENEMY_WIDTH == COLUMNS)
+            if((enemy.getColumn() + ENEMY_WIDTH == COLUMNS) || (enemy.getColumn() == 0))
                 return true;
         }
         return false;
@@ -150,7 +163,8 @@ public class GameState {
     }
 
     public void playerShoot() {
-        lasers.add(player1.shoot());
+        Laser laser = player1.shoot();
+        addLaser(laser);
     }
 
     public List<Enemy> getEnemies() {
@@ -175,12 +189,21 @@ public class GameState {
     }
 
     public Player getPlayer1() {
-        return player1;
+        return this.player1;
     }
 
-    public void addLaser(Laser laser) {
-        this.lasers.add(laser);
+    public final void addLaser(Laser laser) {
+        this.lasersProperty().add(laser);
     }
+
+    public final ListProperty<Laser> lasersProperty() {    //final
+        return this.lasers;
+    }
+
+    public final List<Laser> getLasers() {
+        return this.lasersProperty().get();
+    }
+
 
     public final boolean isActive() {
         return this.activeProperty().get();
