@@ -3,7 +3,10 @@ import javafx.collections.FXCollections;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedList;
 import java.util.List;
+
+import static java.lang.Math.random;
 
 public class GameState {
     private final List<Enemy> enemies;
@@ -29,22 +32,31 @@ public class GameState {
     public static final int PLAYER_WIDTH = 15;
     public static final int PLAYER_LENGTH = 15;
 
+    public static final int PLAYER_LIVES = 3;
+
     public static final int ENEMY_WIDTH = 10;
     public static final int ENEMY_LENGTH = 10;
     public static final int ENEMY_SPACING = 5;
 
 
     public static final int ENEMY_ROWS = 3;
-    public static final int ENEMY_COLS = 7;
+    public static final int ENEMY_COLS = 11;
+
+    public static final int ENEMY_DELAY = 50;
 
     public static final int LASER_LENGTH = 5;
+    public static final int SHOOT_ENEMY_DELAY = 50000;
+    private int timeElapsedToShoot = 0;
+
+    private final int delay;
+
 
     private final IntegerProperty score;
 
     private final BooleanProperty active;
 
 
-    public GameState() {
+    public GameState(int delay) {
         this.enemies = new ArrayList<>();
         initializeEnemies();
 
@@ -53,17 +65,19 @@ public class GameState {
 
         this.lasers = new SimpleListProperty<>(FXCollections.observableArrayList());
 
-        this.player1 = new Player(ROWS - PLAYER_LENGTH - 5, (COLUMNS - PLAYER_WIDTH) / 2);  //5 odsazeni at to lip vypada
+        this.player1 = new Player(PLAYER_LIVES,ROWS - PLAYER_LENGTH - 5, (COLUMNS - PLAYER_WIDTH) / 2);  //5 odsazeni at to lip vypada
 
         this.score = new SimpleIntegerProperty(0);
         this.active = new SimpleBooleanProperty(false);
+
+        this.delay = delay;
     }
 
     private void initializeEnemies() {
         int allEnemies =  ENEMY_COLS * ENEMY_WIDTH + (ENEMY_COLS - 1) * ENEMY_SPACING;   //dat enemy spacing
         for(int i = 0; i < ENEMY_ROWS; i++)
             for(int j = 0; j < ENEMY_COLS; j++)
-                enemies.add(new Enemy(0,  ENEMY_LENGTH + i * (ENEMY_LENGTH + ENEMY_SPACING),  (COLUMNS - allEnemies) / 2 + j * (ENEMY_WIDTH + ENEMY_SPACING)));
+                enemies.add(new Enemy(0, ENEMY_DELAY,  ENEMY_LENGTH + i * (ENEMY_LENGTH + ENEMY_SPACING),  (COLUMNS - allEnemies) / 2 + j * (ENEMY_WIDTH + ENEMY_SPACING)));
     }
 
     private void initializeShields() {
@@ -83,25 +97,44 @@ public class GameState {
                 setDefaultEnemyPos(enemies.get(i * ENEMY_COLS + j), i, j);
 
         enemies.forEach(e -> e.setActive(true));
+        enemies.forEach(e -> e.setMoveInterval(ENEMY_DELAY));
         shields.forEach(s -> s.setActive(true));
 
         player1.setColumn((COLUMNS - PLAYER_WIDTH) / 2);
         player1.setRow(ROWS - PLAYER_LENGTH - 5);
         player1.setActive(true);
 
-        lasers.removeAll();
-        
+        lasers.forEach(l -> l.setActive(false));
+        lasers.clear();
+
         score.setValue(0);
         active.setValue(false);
     }
 
     public boolean update() {
-        if(isEnemyOnWall()) {
+        enemies.forEach(enemy -> enemy.updateTimeSinceLastMoved(delay));
+        if(enemies.stream().filter(HittableObject::isActive).anyMatch(this::isEnemyOnWall)) {
             enemies.forEach(Enemy::descend);
-            enemies.forEach(e -> e.setDirection(e.getDirection() * -1));
         }
         enemies.forEach(Enemy::move);
+        if(enemies.stream().filter(HittableObject::isActive).anyMatch(e -> (e.getRow() + ENEMY_LENGTH == ROWS) || (e.isHit(player1.getShape())))) {
+            setActive(false);
+            return isActive();
+        }
 
+        //vyfiltruju si alieny podle toho, jestli jsou prvni v rade: jestli je za alienem nejaky, ktery ma vetsi row, tak ho neberu
+        //pak z nich nahodne vyberu ty, kter vystreli, po urcitem casovem useku
+
+        timeElapsedToShoot += delay;
+        if(timeElapsedToShoot >= SHOOT_ENEMY_DELAY) {
+            timeElapsedToShoot = 0;
+            List<Enemy> shootable = new LinkedList<>();
+            for(Enemy enemy: enemies) {
+                if(enemies.stream().filter(HittableObject::isActive).filter(e -> e.getColumn() == enemy.getColumn()).noneMatch(e -> e.getRow() > enemy.getRow()))
+                    shootable.add(enemy);
+            }
+            lasers.add(shootable.get((int) (random() * (shootable.size() - 1))).shoot());
+        }
         lasers.forEach(Laser::move);
         lasers.stream().filter(HittableObject::isActive).forEach(this::checkHit);
         return isActive();
@@ -109,8 +142,12 @@ public class GameState {
 
     private void checkHit(Laser laser) {
         if(player1.isHit(laser.getShape())) {
-            player1.setActive(false);
-            setActive(false);
+            if(player1.isDead()) {
+                player1.setActive(false);
+                this.setActive(false);
+                return;
+            }
+            laser.setActive(false);
             return;
         }
         for(Enemy enemy: enemies) {
@@ -141,12 +178,8 @@ public class GameState {
         score.set(score.get() + 1);
     }
 
-    private boolean isEnemyOnWall() {    //check i druhe strany xd
-        for(Enemy enemy: enemies) {
-            if((enemy.getColumn() + ENEMY_WIDTH == COLUMNS) || (enemy.getColumn() == 0))
-                return true;
-        }
-        return false;
+    private boolean isEnemyOnWall(Enemy enemy) {    //check i druhe strany xd
+        return (enemy.getColumn() + ENEMY_WIDTH == COLUMNS) || (enemy.getColumn() == 0);
     }
 
     //abstrahovat mby?
@@ -166,6 +199,8 @@ public class GameState {
         Laser laser = player1.shoot();
         addLaser(laser);
     }
+
+
 
     public List<Enemy> getEnemies() {
         return Collections.unmodifiableList(enemies);

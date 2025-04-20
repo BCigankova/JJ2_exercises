@@ -26,8 +26,6 @@ public class ShieldShape extends Pane {
         baseForNow.yProperty().bind(shield.rowProperty().multiply(SpaceInvadersApp.UNIT_SIZE));
 
         baseForNow.visibleProperty().bind(shield.activeProperty());
-        this.visibleProperty().bind(shield.activeProperty());
-
 
         getChildren().add(baseForNow);
     }

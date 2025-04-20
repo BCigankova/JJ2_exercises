@@ -8,7 +8,6 @@ public class LaserShape extends Pane {
         base.xProperty().bind(laser.columnProperty().multiply(SpaceInvadersApp.UNIT_SIZE));
         base.yProperty().bind(laser.rowProperty().multiply(SpaceInvadersApp.UNIT_SIZE));
 
-        this.visibleProperty().bind(laser.activeProperty());
         base.visibleProperty().bind(laser.activeProperty());
 
         this.getChildren().add(base);

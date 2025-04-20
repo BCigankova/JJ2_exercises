@@ -5,8 +5,7 @@ import javafx.application.Application;
 import javafx.collections.ListChangeListener;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
-import javafx.scene.control.skin.LabeledSkinBase;
-import javafx.scene.input.KeyEvent;
+import javafx.scene.input.KeyCode;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
@@ -16,31 +15,51 @@ import javafx.scene.text.Text;
 import javafx.stage.Stage;
 import javafx.util.Duration;
 
+import java.util.HashSet;
+import java.util.Set;
+
 public class SpaceInvadersApp extends Application {
 
     public static final int UNIT_SIZE = 5;
-    private static final int DELAY = 50;
+    private static final int DELAY = 10;
 
-    private final GameState gameState = new GameState();
+    private final GameState gameState = new GameState(DELAY);
+
     private Pane gamePane;
     private Text lbScore;
+    private Text lbLives;
     private Button btnStart;
+
     private Timeline timeline;
+    private final Set<KeyCode> pressedKeys = new HashSet<>();
+
+    private final KeyCode MOVE_LEFT_KEY = KeyCode.A;
+    private final KeyCode MOVE_RIGHT_KEY = KeyCode.D;
+    private final KeyCode SHOOT_KEY = KeyCode.SPACE;
 
 
     @Override
     public void start(Stage primaryStage) throws Exception {
         createGamePane();
 
-        gameState.lasersProperty().addListener((ListChangeListener<Laser>) e -> {e.next(); addLaser(e.getAddedSubList().getFirst());});
+        gameState.lasersProperty().addListener(this::updateLasers);
 
         lbScore = new Text();
         lbScore.textProperty().bind(gameState.scoreProperty().asString());
+
+        lbLives = new Text();
+        lbLives.textProperty().bind(gameState.getPlayer1().livesProperty().asString());
 
         timeline = new Timeline();
         KeyFrame updates = new KeyFrame(
                 Duration.millis(DELAY),
                 e -> {
+                    if (pressedKeys.contains(MOVE_LEFT_KEY)) {
+                        gameState.moveLeft();
+                    }
+                    if (pressedKeys.contains(MOVE_RIGHT_KEY)) {
+                        gameState.moveRight();
+                    }
                     if (!gameState.update()) gameOver();
                 }
         );
@@ -65,18 +84,33 @@ public class SpaceInvadersApp extends Application {
         StackPane gameStack = new StackPane();
         gameStack.getChildren().addAll(gamePane, btnStart);
 
-        HBox scorePane = new HBox(10, new Text("Score: "), lbScore);
+        HBox infoPane = new HBox(10, new Text("Score: "), lbScore, new Text("\t\t\tLives: "), lbLives);
 
         root.setCenter(gameStack);
-        root.setTop(scorePane);
+        root.setTop(infoPane);
 
         Scene scene = new Scene(root, GameState.COLUMNS * UNIT_SIZE, GameState.ROWS * UNIT_SIZE);
-        scene.setOnKeyPressed(this::dispatchKeyEvents);
+
+        scene.setOnKeyPressed(e -> {pressedKeys.add(e.getCode());
+        if (e.getCode() == SHOOT_KEY)
+            gameState.playerShoot();
+        });
+
+
+        scene.setOnKeyReleased(e -> pressedKeys.remove(e.getCode()));
+
         primaryStage.setTitle("Space Invaders");
         primaryStage.setScene(scene);
         primaryStage.show();
     }
 
+    private void updateLasers(ListChangeListener.Change<? extends Laser> e) {
+        e.next();
+        if (e.wasAdded()) {
+            addLaser(e.getAddedSubList().getFirst());
+        }
+    }
+    /*
     private void dispatchKeyEvents(KeyEvent e) {
         switch (e.getCode()) {
             case A:  gameState.moveLeft(); break;
@@ -84,6 +118,8 @@ public class SpaceInvadersApp extends Application {
             case SPACE: gameState.playerShoot(); break;
         }
     }
+
+     */
 
     private void gameOver() {
         timeline.stop();
@@ -124,17 +160,15 @@ public class SpaceInvadersApp extends Application {
 
 /*
 TODO: Grafika: alieni 1. zakladni 2. vice druhu
-                player
-                shieldy
-                vsechno polygon? sam vi kde ma x, y
-                nebo hitbox
+               player
+               shieldy
+               vsechno polygon? sam vi kde ma x, y
+               nebo hitbox
+               (((oddelat pryc vykresleni laseru z app (musim je asi odstranovat misto invisible))))
        Shieldy: jak z nich vykrojit kus? odstranit pixely okolo nebo zivoty
-       Pohyb: aby strilel a hybal se
-                pohyb se musi zrychlovat, dodatecny zrychleni po nejakem case
-                strely musi byt rychlejsi o ranec
-       Gameplay: dodelat zivoty hracovi
-                 strileni alienu
+       Gameplay: vice hracu?
        Other: package
               cleanup kodu pro readability
+              predelat do javafxml gamepanes?
 
  */
