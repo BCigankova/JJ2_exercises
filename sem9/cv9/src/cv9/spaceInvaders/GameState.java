@@ -1,3 +1,5 @@
+package cv9.spaceInvaders;
+
 import javafx.beans.property.*;
 import javafx.collections.FXCollections;
 
@@ -22,12 +24,13 @@ public class GameState {
     public static final int ROWS = 200;
     public static final int COLUMNS = 250;
 
-    public static final int SHIELD_WIDTH = 10;
-    public static final int SHIELD_LENGTH = 10;
+    public static final int SHIELD_WIDTH = 30;
+    public static final int SHIELD_LENGTH = 20;
 
     public static final int SHIELD_COLS = 5;
-    public static final int SHIELD_SPACING = 10;
+    public static final int SHIELD_SPACING = 15;
 
+    public static final int SHIELD_LIVES = 3;
 
     public static final int PLAYER_WIDTH = 15;
     public static final int PLAYER_LENGTH = 15;
@@ -45,7 +48,7 @@ public class GameState {
     public static final int ENEMY_DELAY = 50;
 
     public static final int LASER_LENGTH = 5;
-    public static final int SHOOT_ENEMY_DELAY = 50000;
+    public static final int SHOOT_ENEMY_DELAY = 500;
     private int timeElapsedToShoot = 0;
 
     private final int delay;
@@ -54,6 +57,8 @@ public class GameState {
     private final IntegerProperty score;
 
     private final BooleanProperty active;
+
+    private boolean wasWon = false;
 
 
     public GameState(int delay) {
@@ -83,7 +88,7 @@ public class GameState {
     private void initializeShields() {
         int allShields =  SHIELD_COLS * SHIELD_WIDTH + (SHIELD_COLS - 1) * SHIELD_SPACING;
         for(int i = 0; i < SHIELD_COLS; i++)
-            shields.add(new Shield((COLUMNS - allShields) / 2 + i * (SHIELD_WIDTH + SHIELD_SPACING)));
+            shields.add(new Shield(SHIELD_LIVES, (COLUMNS - allShields) / 2 + i * (SHIELD_WIDTH + SHIELD_SPACING)));
     }
 
     private void setDefaultEnemyPos(Enemy enemy, int i, int j) {
@@ -99,6 +104,7 @@ public class GameState {
         enemies.forEach(e -> e.setActive(true));
         enemies.forEach(e -> e.setMoveInterval(ENEMY_DELAY));
         shields.forEach(s -> s.setActive(true));
+        shields.forEach(s -> s.setLives(SHIELD_LIVES));
 
         player1.setColumn((COLUMNS - PLAYER_WIDTH) / 2);
         player1.setRow(ROWS - PLAYER_LENGTH - 5);
@@ -107,17 +113,27 @@ public class GameState {
         lasers.forEach(l -> l.setActive(false));
         lasers.clear();
 
-        score.setValue(0);
+        if(!wasWon)
+            score.setValue(0);
         active.setValue(false);
+
+        timeElapsedToShoot = 0;
     }
 
     public boolean update() {
+        if(gameWon()) {
+            setActive(false);
+            wasWon = true;
+            return isActive();
+        }
+
         enemies.forEach(enemy -> enemy.updateTimeSinceLastMoved(delay));
         if(enemies.stream().filter(HittableObject::isActive).anyMatch(this::isEnemyOnWall)) {
             enemies.forEach(Enemy::descend);
         }
         enemies.forEach(Enemy::move);
         if(enemies.stream().filter(HittableObject::isActive).anyMatch(e -> (e.getRow() + ENEMY_LENGTH == ROWS) || (e.isHit(player1.getShape())))) {
+            wasWon = false;
             setActive(false);
             return isActive();
         }
@@ -145,6 +161,7 @@ public class GameState {
             if(player1.isDead()) {
                 player1.setActive(false);
                 this.setActive(false);
+                wasWon = false;
                 return;
             }
             laser.setActive(false);
@@ -161,8 +178,12 @@ public class GameState {
 
         //naraz do stitu -> dead stit (pridat rozbijeni stitu/zivoty?)
         for(Shield shield: shields) {
-            if (shield.isHit(laser.getShape())) {
-                shield.setActive(false);
+            if(shield.isHit(laser.getShape())) {
+                if(shield.isDead()) {
+                    shield.setActive(false);
+                    laser.setActive(false);
+                    return;
+                }
                 laser.setActive(false);
                 return;
             }
@@ -172,6 +193,10 @@ public class GameState {
         if (laser.getRow() == 0 || laser.getRow() + LASER_LENGTH == ROWS) {
             laser.setActive(false);
         }
+    }
+
+    private boolean gameWon() {
+        return enemies.stream().noneMatch(HittableObject::isActive);
     }
 
     private void increaseScore() {

@@ -1,6 +1,7 @@
+package cv9.spaceInvaders;
+
 import javafx.beans.property.IntegerProperty;
 import javafx.beans.property.SimpleIntegerProperty;
-import javafx.scene.shape.Shape;
 
 public class Player extends HittableObject {
     private final IntegerProperty lives;

@@ -1,3 +1,4 @@
+package cv9.spaceInvaders;
 
 public class Laser extends HittableObject {
 

@@ -1,4 +1,6 @@
-public class Enemy extends HittableObject{
+package cv9.spaceInvaders;
+
+public class Enemy extends HittableObject {
     private final int type;
     private int direction;    //1 doprava -1 doleva
 
